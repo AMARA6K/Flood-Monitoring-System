@@ -494,6 +494,16 @@
   let lastOnlineTime = Date.now();
   const BLYNK_BASE = `https://blynk.cloud/external/api`;
 
+  async function checkOnline() {
+    try {
+      const res = await fetch(`${BLYNK_BASE}/isHardwareConnected?token=${BLYNK_TOKEN}`);
+      const text = await res.text();
+      return text.trim() === 'true';
+    } catch(e) {
+      return false;
+    }
+  }
+
   async function fetchPin(pin) {
     try {
       const res = await fetch(`${BLYNK_BASE}/get?token=${BLYNK_TOKEN}&${pin}`);
@@ -545,12 +555,12 @@
     bar.style.width = pct + '%';
   }
 
-  async function updateDashboard() {
-    const [water, status, batt] = await Promise.all([
-      fetchPin(PIN_WATER),
-      fetchPin(PIN_STATUS),
-      fetchPin(PIN_BATT)
-    ]);
+  const [water, status, batt, isOnline] = await Promise.all([
+    fetchPin(PIN_WATER),
+    fetchPin(PIN_STATUS),
+    fetchPin(PIN_BATT),
+    checkOnline()
+  ]);
 
     if (water !== null) {
       const wEl = document.getElementById('waterLevel');
