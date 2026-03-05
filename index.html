@@ -491,7 +491,7 @@
   // Max distance for water bar (adjust to your sensor range)
   const MAX_DISTANCE = 400;
   // ============================================================
-
+  let lastOnlineTime = Date.now();
   const BLYNK_BASE = `https://blynk.cloud/external/api`;
 
   async function fetchPin(pin) {
