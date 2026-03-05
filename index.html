@@ -565,6 +565,11 @@
       sEl.textContent = 'ONLINE';
       sEl.classList.remove('loading');
       sEl.style.color = '#00ff88';
+      lastOnlineTime = Date.now();
+    } else {
+      const sEl = document.getElementById('systemStatus');
+      sEl.textContent = 'OFFLINE';
+      sEl.style.color = '#ff2244';
     }
 
     if (batt !== null) {
