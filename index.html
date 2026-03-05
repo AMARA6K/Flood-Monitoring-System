@@ -481,7 +481,7 @@
   // CONFIGURATION — Update these values!
   // ============================================================
   const BLYNK_TOKEN = "RfaM0LpJDwbIZ3902IZLqcB6HJNam-2u";
-  const CAM_IP = "192.168.31.5"; // Your ESP32-CAM IP
+  const CAM_URL = "https://f7f9-112-209-79-177.ngrok-free.app"; // Your ESP32-CAM IP
 
   // Blynk virtual pins
   const PIN_WATER  = "V0";  // Water level in cm
@@ -587,7 +587,7 @@
     const timeEl = document.getElementById('camTime');
 
     // Add timestamp to URL to prevent caching
-    const url = `http://${CAM_IP}/capture?t=${Date.now()}`;
+    const url = `${CAM_URL}/capture?t=${Date.now()}`;
     const testImg = new Image();
 
     testImg.onload = function() {
