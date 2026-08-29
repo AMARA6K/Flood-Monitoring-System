@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flood Monitoring System — Barangay Bayugo</title>
+<style>
+  :root{
+    --navy: #10233f;
+    --navy-2: #163157;
+    --blue: #1b4b8c;
+    --blue-light: #eaf1fb;
+    --green: #1e7a34;
+    --green-light: #e9f7ee;
+    --red: #dc2626;
+    --red-light: #fdecec;
+    --orange: #ea8a1f;
+    --orange-light: #fef3e0;
+    --amber: #f0b90b;
+    --amber-light: #fff8e0;
+    --ink: #16233a;
+    --muted: #5b6b85;
+    --line: #e2e8f2;
+    --paper: #f4f7fc;
+    --card: #ffffff;
+    --radius: 14px;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);}
+  body{-webkit-font-smoothing:antialiased;}
+
+  .app{
+    max-width:1400px;
+    margin:0 auto;
+    padding:14px;
+  }
+
+  /* ---------- HEADER ---------- */
+  .header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:14px 22px;
+    margin-bottom:14px;
+    flex-wrap:wrap;
+  }
+  .brand{display:flex; align-items:center; gap:14px;}
+  .logo{
+    width:52px;height:52px;border-radius:50%;
+    border:3px solid var(--blue);
+    display:flex;align-items:center;justify-content:center;
+    background:#fff;flex:none;
+  }
+  .brand h1{
+    font-size:1.5rem;
+    margin:0;
+    letter-spacing:.3px;
+    color:var(--navy);
+    font-weight:800;
+  }
+  .brand p{margin:2px 0 0;color:var(--muted);font-size:.82rem;}
+  .header-right{display:flex; gap:10px; flex-wrap:wrap;}
+  .pill{
+    display:flex; flex-direction:column; justify-content:center;
+    border:1px solid var(--line); border-radius:10px;
+    padding:8px 16px; min-width:150px;
+  }
+  .pill.status{background:var(--green-light); border-color:#bfe6cb;}
+  .pill.status.offline{background:var(--red-light); border-color:#f4b9b9;}
+  .pill .label{font-size:.68rem; font-weight:700; color:var(--muted); letter-spacing:.4px;}
+  .pill .value{font-size:.98rem; font-weight:800;}
+  .pill.status .value{color:var(--green); display:flex; align-items:center; gap:6px;}
+  .pill.status.offline .value{color:var(--red);}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green); animation:pulse 1.8s infinite;}
+  .pill.status.offline .dot{background:var(--red); animation:none;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(30,122,52,.5);}70%{box-shadow:0 0 0 7px rgba(30,122,52,0);}100%{box-shadow:0 0 0 0 rgba(30,122,52,0);}}
+  .pill.clock .value{color:var(--navy);}
+  .pill.clock .label{color:var(--muted);}
+
+  /* ---------- LAYOUT ---------- */
+  .layout{display:flex; gap:14px; align-items:flex-start;}
+  .sidebar{
+    width:210px; flex:none;
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:10px; position:sticky; top:14px;
+  }
+  .nav-item{
+    display:flex; align-items:center; gap:10px;
+    padding:11px 12px; border-radius:10px; margin-bottom:4px;
+    font-size:.88rem; font-weight:600; color:var(--navy);
+    cursor:pointer; border:none; background:none; width:100%; text-align:left;
+    transition:background .15s ease;
+  }
+  .nav-item:hover{background:var(--blue-light);}
+  .nav-item.active{background:var(--blue); color:#fff;}
+  .nav-item .ic{width:18px; text-align:center; flex:none;}
+  .emergency{
+    margin-top:10px; background:linear-gradient(160deg,#e0261f,#b91410);
+    color:#fff; border-radius:12px; padding:14px; text-align:center;
+  }
+  .emergency .label{font-size:.72rem; font-weight:800; letter-spacing:.4px; opacity:.9;}
+  .emergency .num{font-size:2rem; font-weight:900; margin:4px 0;}
+  .emergency .sub{font-size:.72rem; opacity:.9; line-height:1.3;}
+
+  .main{flex:1; min-width:0; display:flex; flex-direction:column; gap:14px;}
+
+  /* ---------- ALERT + WEATHER ROW ---------- */
+  .row-top{display:grid; grid-template-columns:1fr 320px; gap:14px;}
+  .alert-banner{
+    background:var(--red-light); border:1px solid #f4b9b9; border-radius:var(--radius);
+    padding:18px 22px; display:flex; align-items:center; gap:18px; position:relative; overflow:hidden;
+  }
+  .alert-banner.level-normal{background:var(--green-light); border-color:#bfe6cb;}
+  .alert-banner.level-elevated{background:var(--amber-light); border-color:#f3dd9c;}
+  .alert-banner.level-critical{background:#fde2e2; border-color:#f2a3a3;}
+  .alert-icon{font-size:2.4rem; flex:none;}
+  .alert-text h2{margin:0 0 2px; font-size:1.4rem; color:var(--red); font-weight:900;}
+  .level-normal .alert-text h2{color:var(--green);}
+  .level-elevated .alert-text h2{color:#b8860b;}
+  .alert-text p{margin:2px 0; font-weight:600;}
+  .alert-text p.sub{font-weight:400; color:var(--muted); font-size:.85rem;}
+  .alert-house{margin-left:auto; font-size:2.2rem; opacity:.85;}
+
+  .weather-card{
+    background:var(--blue-light); border:1px solid #cfe0f7; border-radius:var(--radius);
+    padding:16px 18px;
+  }
+  .weather-card h3{margin:0 0 10px; font-size:.78rem; color:var(--blue); letter-spacing:.4px; font-weight:800;}
+  .weather-main{display:flex; align-items:center; gap:10px;}
+  .weather-main .icon{font-size:2.3rem;}
+  .weather-main .temp{font-size:2rem; font-weight:900; color:var(--navy);}
+  .weather-main .cond{font-size:.75rem; color:var(--muted); font-weight:700; text-transform:uppercase;}
+  .weather-stats{display:flex; flex-direction:column; gap:5px; margin-top:12px; font-size:.8rem;}
+  .weather-stats div{display:flex; justify-content:space-between; color:var(--ink);}
+  .weather-stats span.k{color:var(--muted);}
+  .weather-source{font-size:.65rem; color:var(--muted); text-align:right; margin-top:8px;}
+
+  /* ---------- AREA CARDS ---------- */
+  .row-areas{display:grid; grid-template-columns:1fr 1fr 300px; gap:14px;}
+  .area-card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; display:flex; flex-direction:column;}
+  .area-head{padding:12px 16px; color:#fff;}
+  .area-head.blue{background:var(--blue);}
+  .area-head.green{background:var(--green);}
+  .area-head .tag{font-size:.68rem; opacity:.85; letter-spacing:.4px; font-weight:700;}
+  .area-head .name{font-size:.95rem; font-weight:800; letter-spacing:.3px;}
+  .area-body{display:flex; align-items:center; gap:16px; padding:16px; flex:1;}
+  .area-icon{
+    width:64px;height:64px;border-radius:50%; flex:none;
+    display:flex;align-items:center;justify-content:center; font-size:1.6rem;
+    border:2px solid var(--blue);
+  }
+  .area-icon.green-ring{border-color:var(--green);}
+  .area-reading .val{font-size:1.9rem; font-weight:900; color:var(--blue); line-height:1;}
+  .area-reading.high .val{color:var(--orange);}
+  .area-reading .val small{font-size:1rem; font-weight:700;}
+  .area-reading .cap{font-size:.72rem; color:var(--muted); font-weight:700; letter-spacing:.3px; margin-top:2px;}
+  .area-reading .status{font-weight:900; font-size:.85rem; margin-top:2px;}
+  .status-normal{color:var(--green);}
+  .status-elevated{color:#b8860b;}
+  .status-high{color:var(--orange);}
+  .status-critical{color:var(--red);}
+  .gauge-wrap{margin-left:auto; display:flex; align-items:center; gap:8px;}
+  .gauge{width:22px; height:96px; border:2px solid var(--ink); border-radius:11px; position:relative; overflow:hidden; background:#fff;}
+  .gauge-fill{position:absolute; bottom:0; left:0; right:0; background:var(--blue); transition:height .6s ease, background .6s ease;}
+  .gauge-scale{display:flex; flex-direction:column; justify-content:space-between; height:96px; font-size:.62rem; color:var(--muted); font-weight:700;}
+  .area-foot{padding:8px 16px; font-size:.72rem; color:var(--muted); border-top:1px solid var(--line);}
+  .area-foot.blue-bg{background:var(--blue-light);}
+  .area-foot.green-bg{background:var(--green-light);}
+
+  /* ---------- SAFETY REMINDERS ---------- */
+  .safety-card{background:var(--amber-light); border:1px solid #f0dc9c; border-radius:var(--radius); overflow:hidden; display:flex; flex-direction:column;}
+  .safety-card h3{margin:0; padding:14px 16px 8px; font-size:.92rem; display:flex; gap:8px; align-items:center; color:#7a5b00;}
+  .safety-list{list-style:none; margin:0; padding:0 16px; display:flex; flex-direction:column; gap:12px; flex:1;}
+  .safety-list li{display:flex; gap:10px; font-size:.82rem; align-items:flex-start;}
+  .safety-list .ic{font-size:1.05rem;}
+  .safety-foot{background:var(--amber); color:#4a3800; text-align:center; font-weight:900; font-size:.78rem; padding:8px; margin-top:12px; letter-spacing:.3px;}
+
+  /* ---------- CAMERA + MAP ROW ---------- */
+  .row-mid{display:grid; grid-template-columns:1fr 1fr 300px; gap:14px;}
+  .panel{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;}
+  .panel-head{background:var(--blue); color:#fff; padding:10px 14px; font-size:.82rem; font-weight:800; display:flex; align-items:center; gap:8px;}
+  .cam-body{position:relative; height:190px; background:#0d1b2b; display:flex; align-items:center; justify-content:center;}
+  .cam-body img{width:100%; height:100%; object-fit:cover; display:block;}
+  .live-badge{position:absolute; top:10px; left:10px; background:rgba(0,0,0,.55); color:#fff; font-size:.68rem; font-weight:800; padding:3px 9px; border-radius:20px; display:flex; align-items:center; gap:6px;}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:#e42; animation:pulse2 1.4s infinite;}
+  @keyframes pulse2{0%,100%{opacity:1;}50%{opacity:.3;}}
+  .cam-foot{background:var(--navy-2); color:#dbe6f7; font-size:.72rem; padding:7px 14px;}
+
+  .map-body{height:190px; background:
+      linear-gradient(120deg, transparent 46%, #bcd8f5 47%, #bcd8f5 53%, transparent 54%),
+      #eef2f0;
+    position:relative; overflow:hidden;
+  }
+  .map-label{position:absolute; font-size:.7rem; font-weight:800; color:#3a4a3a;}
+  .map-marker{position:absolute; display:flex; align-items:center; gap:6px; background:#fff; border-radius:8px; padding:5px 9px; box-shadow:0 2px 6px rgba(0,0,0,.15); font-size:.68rem; font-weight:700;}
+  .map-marker .pin{width:9px;height:9px;border-radius:50% 50% 50% 0; transform:rotate(-45deg); flex:none;}
+  .map-view-btn{display:block; width:100%; background:var(--blue); color:#fff; border:none; padding:11px; font-weight:800; font-size:.82rem; cursor:pointer; letter-spacing:.3px;}
+  .map-view-btn:hover{background:var(--navy);}
+
+  /* ---------- WATER LEVEL GUIDE ---------- */
+  .guide-card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;}
+  .guide-card h3{margin:0; padding:12px 14px; font-size:.85rem; color:var(--blue); border-bottom:1px solid var(--line);}
+  .guide-row{display:flex; align-items:center; gap:10px; padding:9px 14px; font-size:.75rem;}
+  .guide-row .chip{width:8px; align-self:stretch; border-radius:4px; flex:none;}
+  .guide-row .range{font-weight:800; color:var(--ink); min-width:80px;}
+  .guide-row .lbl{font-weight:800;}
+  .guide-row .desc{color:var(--muted); font-size:.7rem;}
+  .g-normal{background:var(--green);}
+  .g-elevated{background:var(--amber);}
+  .g-high{background:var(--orange);}
+  .g-critical{background:var(--red);}
+
+  /* ---------- FOOTER ---------- */
+  .footer{
+    background:var(--navy); color:#fff; border-radius:var(--radius);
+    padding:14px 22px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  }
+  .footer .msg{display:flex; align-items:center; gap:12px;}
+  .footer .msg b{display:block; font-size:.92rem;}
+  .footer .msg span{display:block; font-size:.75rem; color:#c6d3ea;}
+  .fb{background:#fff; color:var(--navy); border-radius:10px; padding:8px 14px; font-size:.78rem; font-weight:700; display:flex; align-items:center; gap:8px;}
+
+  /* ---------- OTHER PAGES ---------- */
+  .page{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:26px; min-height:420px;}
+  .page h2{margin-top:0; color:var(--navy);}
+  .page p{color:var(--muted); line-height:1.6;}
+  .log-table{width:100%; border-collapse:collapse; margin-top:14px; font-size:.85rem;}
+  .log-table th{text-align:left; color:var(--muted); font-size:.72rem; border-bottom:2px solid var(--line); padding:8px;}
+  .log-table td{padding:9px 8px; border-bottom:1px solid var(--line);}
+  .settings-row{display:flex; justify-content:space-between; align-items:center; padding:14px 0; border-bottom:1px solid var(--line);}
+  .toggle{width:42px; height:24px; background:var(--line); border-radius:20px; position:relative; cursor:pointer; flex:none;}
+  .toggle.on{background:var(--green);}
+  .toggle::after{content:''; position:absolute; width:18px;height:18px; background:#fff; border-radius:50%; top:3px; left:3px; transition:left .15s;}
+  .toggle.on::after{left:21px;}
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width:1050px){
+    .row-top{grid-template-columns:1fr;}
+    .row-areas{grid-template-columns:1fr 1fr; }
+    .row-areas .safety-card{grid-column:1/-1;}
+    .row-mid{grid-template-columns:1fr 1fr;}
+    .row-mid .guide-card{grid-column:1/-1;}
+  }
+  @media (max-width:760px){
+    .layout{flex-direction:column;}
+    .sidebar{width:100%; position:static;}
+    .nav{display:flex; flex-wrap:wrap; gap:4px;}
+    .nav-item{width:auto; flex:1 1 auto; justify-content:center;}
+    .row-areas{grid-template-columns:1fr;}
+    .row-mid{grid-template-columns:1fr;}
+    .header{flex-direction:column; align-items:flex-start;}
+  }
+
+  .sr-only{position:absolute; width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+  button:focus-visible, .nav-item:focus-visible{outline:3px solid #4c8dff; outline-offset:2px;}
+  @media (prefers-reduced-motion: reduce){
+    .dot, .live-dot{animation:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="brand">
+      <div class="logo">🏠🌊</div>
+      <div>
+        <h1>FLOOD MONITORING SYSTEM</h1>
+        <p>Real-time Monitoring • Early Warning • Stay Safe — Barangay Bayugo</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="pill status" id="statusPill">
+        <span class="label">SYSTEM STATUS</span>
+        <span class="value"><span class="dot" id="statusDot"></span><span id="statusText">ONLINE</span></span>
+      </div>
+      <div class="pill clock">
+        <span class="label" id="dateLabel">—</span>
+        <span class="value" id="timeLabel">--:--</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="layout">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="nav">
+        <button class="nav-item active" data-page="home"><span class="ic">🏠</span>HOME</button>
+        <button class="nav-item" data-page="water"><span class="ic">💧</span>WATER LEVELS</button>
+        <button class="nav-item" data-page="camera"><span class="ic">🎥</span>LIVE CAMERA</button>
+        <button class="nav-item" data-page="alerts"><span class="ic">📢</span>ALERTS</button>
+        <button class="nav-item" data-page="sms"><span class="ic">💬</span>SMS LOGS</button>
+        <button class="nav-item" data-page="map"><span class="ic">📍</span>MAP VIEW</button>
+        <button class="nav-item" data-page="about"><span class="ic">ℹ️</span>ABOUT</button>
+        <button class="nav-item" data-page="settings"><span class="ic">⚙️</span>SETTINGS</button>
+      </div>
+      <div class="emergency">
+        <div class="label">📞 EMERGENCY HOTLINE</div>
+        <div class="num">911</div>
+        <div class="sub">or contact your<br>Barangay Officials</div>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+
+      <!-- ================= HOME PAGE ================= -->
+      <div class="page-view" id="page-home">
+
+        <div class="row-top" style="margin-bottom:14px;">
+          <div class="alert-banner level-high" id="alertBanner">
+            <div class="alert-icon">⚠️</div>
+            <div class="alert-text">
+              <h2 id="alertTitle">ALERT LEVEL: HIGH</h2>
+              <p id="alertSub">Risk of Flooding in Some Areas</p>
+              <p class="sub">Please stay alert and follow instructions from authorities.</p>
+            </div>
+            <div class="alert-house">🏚️💧</div>
+          </div>
+
+          <div class="weather-card">
+            <h3>WEATHER TODAY</h3>
+            <div class="weather-main">
+              <div class="icon">🌧️</div>
+              <div>
+                <div class="temp">28°C</div>
+                <div class="cond">Light Rain</div>
+              </div>
+            </div>
+            <div class="weather-stats">
+              <div><span class="k">💧 Humidity</span><span>82%</span></div>
+              <div><span class="k">🌬️ Wind</span><span>12 km/h</span></div>
+              <div><span class="k">☔ Rainfall</span><span>5.3 mm</span></div>
+            </div>
+            <div class="weather-source">Source: OpenWeatherMap</div>
+          </div>
+        </div>
+
+        <div class="row-areas" style="margin-bottom:14px;">
+
+          <!-- STATION 1 (LIVE ESP32) -->
+          <div class="area-card">
+            <div class="area-head blue">
+              <div class="tag">STATION 1 · LIVE</div>
+              <div class="name">FLOOD MONITOR (ESP32)</div>
+            </div>
+            <div class="area-body">
+              <div class="area-icon">🌊</div>
+              <div class="area-reading" id="area1-reading">
+                <div class="status status-normal" id="area1-status" style="font-size:1.7rem;">SAFE</div>
+                <div class="cap" style="margin-top:6px;">Distance to water: <span id="area1-val">168</span> cm</div>
+                <div class="cap" id="area1-batt">Battery: 92%</div>
+              </div>
+              <div class="gauge-wrap">
+                <div class="gauge-scale"><span>CRIT</span><span>WARN</span><span>SAFE</span></div>
+                <div class="gauge"><div class="gauge-fill" id="area1-fill" style="height:16%; background:var(--green);"></div></div>
+              </div>
+            </div>
+            <div class="area-foot blue-bg">Last update: <span id="area1-time">10:24 AM</span></div>
+          </div>
+
+          <!-- STATION 2 (NOT YET INSTALLED) -->
+          <div class="area-card" style="opacity:.65;">
+            <div class="area-head" style="background:#8a94a6;">
+              <div class="tag">STATION 2</div>
+              <div class="name">NOT YET INSTALLED</div>
+            </div>
+            <div class="area-body">
+              <div class="area-icon" style="border-color:#8a94a6; color:#8a94a6;">➕</div>
+              <div class="area-reading">
+                <div class="status" style="color:#8a94a6;">OFFLINE</div>
+                <div class="cap" style="margin-top:6px;">Add a second ESP32 unit to monitor another site.</div>
+              </div>
+            </div>
+            <div class="area-foot" style="background:#eef1f5;">No sensor connected</div>
+          </div>
+
+          <!-- SAFETY -->
+          <div class="safety-card">
+            <h3>🛡️ SAFETY REMINDERS</h3>
+            <ul class="safety-list">
+              <li><span class="ic">📻</span><span>Stay tuned for updates from official sources.</span></li>
+              <li><span class="ic">🏃</span><span>Be ready to evacuate if instructed.</span></li>
+              <li><span class="ic">🎒</span><span>Prepare your emergency kit.</span></li>
+              <li><span class="ic">👨‍👩‍👧</span><span>Keep your family safe.</span></li>
+            </ul>
+            <div class="safety-foot">YOUR SAFETY IS OUR PRIORITY</div>
+          </div>
+        </div>
+
+        <div class="row-mid" style="margin-bottom:14px;">
+
+          <div class="panel">
+            <div class="panel-head">🎥 LIVE CAMERA FEED</div>
+            <div class="cam-body">
+              <div class="live-badge"><span class="live-dot"></span>LIVE</div>
+              <img src="/mnt/user-data/uploads/788897282_1475085554670058_4280759252056883326_n.jpg" alt="Bayugo River bridge camera view" onerror="this.style.display='none'; this.parentElement.style.background='linear-gradient(160deg,#1b3a5c,#0d1b2b)';">
+            </div>
+            <div class="cam-foot">Area 1 - Bayugo River (Bridge)</div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">📍 MAP OVERVIEW</div>
+            <div class="map-body">
+              <div class="map-label" style="top:14px; left:14px;">Barangay<br>Bayugo</div>
+              <div class="map-marker" style="top:34px; right:16px;"><span class="pin" style="background:var(--orange);"></span>AREA 2 · Poblacion Creek<br>2.45 m (HIGH)</div>
+              <div class="map-marker" style="bottom:16px; left:70px;"><span class="pin" style="background:var(--blue);"></span>AREA 1 · Bayugo Bridge<br>1.85 m (NORMAL)</div>
+            </div>
+            <button class="map-view-btn" data-page="map">VIEW FULL MAP</button>
+          </div>
+
+          <div class="guide-card">
+            <h3>💧 STATUS GUIDE</h3>
+            <div class="guide-row"><span class="chip g-normal"></span><span class="range">&gt; 150 cm</span><span class="lbl">SAFE</span></div>
+            <div class="guide-row" style="padding-top:0;"><span class="desc" style="margin-left:18px;">Water surface far from sensor.</span></div>
+            <div class="guide-row"><span class="chip g-elevated"></span><span class="range">50–150 cm</span><span class="lbl">WARNING</span></div>
+            <div class="guide-row" style="padding-top:0;"><span class="desc" style="margin-left:18px;">Water rising. Be alert.</span></div>
+            <div class="guide-row"><span class="chip g-critical"></span><span class="range">&lt; 50 cm</span><span class="lbl">CRITICAL</span></div>
+            <div class="guide-row" style="padding-top:0;"><span class="desc" style="margin-left:18px;">Flooding imminent. Evacuate!</span></div>
+          </div>
+
+        </div>
+
+        <div class="footer">
+          <div class="msg">
+            <span style="font-size:1.4rem;">📢</span>
+            <div>
+              <b>STAY ALERT. STAY SAFE. EARLY MONITORING SAVES LIVES.</b>
+              <span>Report any flooding or hazards to your Barangay Officials.</span>
+            </div>
+          </div>
+          <div class="fb">📘 Follow our official Facebook page for more updates.</div>
+        </div>
+
+      </div>
+
+      <!-- ================= OTHER PAGES (stubs) ================= -->
+      <div class="page-view" id="page-water" style="display:none;">
+        <div class="page">
+          <h2>Water Levels</h2>
+          <p>Detailed sensor history for each monitoring station in Barangay Bayugo.</p>
+          <table class="log-table">
+            <tr><th>Station</th><th>Distance to water</th><th>Battery</th><th>Status</th></tr>
+            <tr><td>Station 1 — ESP32 Flood Monitor</td><td id="w1-cur">168 cm</td><td id="w1-batt">92%</td><td class="status-normal" id="w1-status">SAFE</td></tr>
+            <tr><td>Station 2</td><td>—</td><td>—</td><td style="color:#8a94a6;">NOT INSTALLED</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="page-view" id="page-camera" style="display:none;">
+        <div class="page">
+          <h2>Live Camera</h2>
+          <p>Camera feed from Area 1 — Bayugo River (Bridge).</p>
+          <div class="panel" style="max-width:640px;">
+            <div class="cam-body" style="height:340px;">
+              <div class="live-badge"><span class="live-dot"></span>LIVE</div>
+              <img src="/mnt/user-data/uploads/788897282_1475085554670058_4280759252056883326_n.jpg" alt="Bayugo River bridge camera view" onerror="this.style.display='none'; this.parentElement.style.background='linear-gradient(160deg,#1b3a5c,#0d1b2b)';">
+            </div>
+            <div class="cam-foot">Area 1 - Bayugo River (Bridge)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="page-view" id="page-alerts" style="display:none;">
+        <div class="page">
+          <h2>Alerts</h2>
+          <p>Active and past alerts issued by the system.</p>
+          <table class="log-table">
+            <tr><th>Time</th><th>Area</th><th>Level</th><th>Message</th></tr>
+            <tr><td>10:24 AM</td><td>Poblacion Creek</td><td class="status-high">HIGH</td><td>Water level exceeded 2.00 m threshold.</td></tr>
+            <tr><td>9:10 AM</td><td>Poblacion Creek</td><td class="status-elevated">ELEVATED</td><td>Water level exceeded 1.00 m threshold.</td></tr>
+            <tr><td>8:02 AM</td><td>Bayugo River (Bridge)</td><td class="status-normal">NORMAL</td><td>Water level within normal range.</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="page-view" id="page-sms" style="display:none;">
+        <div class="page">
+          <h2>SMS Logs</h2>
+          <p>Outgoing warning messages sent to registered residents.</p>
+          <table class="log-table">
+            <tr><th>Time</th><th>Recipients</th><th>Message</th><th>Status</th></tr>
+            <tr><td>10:24 AM</td><td>All households — Purok 3</td><td>HIGH alert: Poblacion Creek at 2.45m. Stay alert.</td><td class="status-normal">Delivered</td></tr>
+            <tr><td>9:11 AM</td><td>All households — Purok 3</td><td>ELEVATED alert: Poblacion Creek rising.</td><td class="status-normal">Delivered</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="page-view" id="page-map" style="display:none;">
+        <div class="page">
+          <h2>Map View</h2>
+          <p>Full overview of monitoring stations across Barangay Bayugo.</p>
+          <div class="map-body" style="height:360px; border-radius:12px;">
+            <div class="map-label" style="top:16px; left:16px; font-size:.9rem;">Barangay Bayugo</div>
+            <div class="map-marker" style="top:60px; right:40px;"><span class="pin" style="background:var(--orange);"></span>AREA 2 · Poblacion Creek — 2.45 m (HIGH)</div>
+            <div class="map-marker" style="bottom:40px; left:100px;"><span class="pin" style="background:var(--blue);"></span>AREA 1 · Bayugo Bridge — 1.85 m (NORMAL)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="page-view" id="page-about" style="display:none;">
+        <div class="page">
+          <h2>About This System</h2>
+          <p>The Flood Monitoring System for Barangay Bayugo provides real-time water level readings, live camera feeds, and automated alerts to help residents stay informed and safe during heavy rains and flood-prone conditions.</p>
+          <p>Sensors are placed at two key points: the Bayugo River bridge and Poblacion Creek. When water levels cross set thresholds, the system raises the alert level and can notify residents by SMS.</p>
+          <p>Built with care for the community, by the community.</p>
+        </div>
+      </div>
+
+      <div class="page-view" id="page-settings" style="display:none;">
+        <div class="page">
+          <h2>Settings</h2>
+          <div class="settings-row"><span>SMS alerts to registered residents</span><div class="toggle on" data-toggle></div></div>
+          <div class="settings-row"><span>Sound alarm on CRITICAL level</span><div class="toggle on" data-toggle></div></div>
+          <div class="settings-row"><span>Auto-refresh sensor data</span><div class="toggle on" data-toggle></div></div>
+          <div class="settings-row"><span>Show rainfall overlay on map</span><div class="toggle" data-toggle></div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ---------- Navigation ----------
+  var navItems = document.querySelectorAll('.nav-item');
+  var pages = document.querySelectorAll('.page-view');
+  function showPage(id){
+    pages.forEach(function(p){ p.style.display = (p.id === 'page-' + id) ? '' : 'none'; });
+    navItems.forEach(function(n){ n.classList.toggle('active', n.getAttribute('data-page') === id); });
+  }
+  navItems.forEach(function(btn){
+    btn.addEventListener('click', function(){ showPage(btn.getAttribute('data-page')); window.scrollTo({top:0, behavior:'smooth'}); });
+  });
+  document.querySelectorAll('[data-page]').forEach(function(el){
+    if(el.classList.contains('nav-item')) return;
+    el.addEventListener('click', function(){ showPage(el.getAttribute('data-page')); window.scrollTo({top:0, behavior:'smooth'}); });
+  });
+
+  // ---------- Settings toggles ----------
+  document.querySelectorAll('[data-toggle]').forEach(function(t){
+    t.addEventListener('click', function(){ t.classList.toggle('on'); });
+  });
+
+  // ---------- Clock ----------
+  function pad(n){ return n < 10 ? '0' + n : n; }
+  function updateClock(){
+    var now = new Date();
+    var h = now.getHours(), m = now.getMinutes();
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12; if(h12 === 0) h12 = 12;
+    document.getElementById('timeLabel').textContent = h12 + ':' + pad(m) + ' ' + ampm;
+    var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    document.getElementById('dateLabel').textContent = months[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear();
+  }
+  updateClock();
+  setInterval(updateClock, 15000);
+
+  // ---------- BLYNK INTEGRATION ----------
+  // Fill these in with your own Blynk Cloud details, then set enabled: true.
+  // 1. server: your Blynk region endpoint, e.g. 'https://blr1.blynk.cloud',
+  //    'https://sgp1.blynk.cloud', 'https://fra1.blynk.cloud' — check the URL
+  //    shown in your Blynk web console / device info.
+  // 2. authToken: Device Info > Firmware Configuration > Auth Token in Blynk.
+  // 3. pins: the virtual pins your ESP32 writes each sensor's distance/level to.
+  // Matches flood_monitor_v2.ino: V0 = distance in cm (sensor to water surface,
+  // SMALLER = more water), V1 = status string "SAFE"/"WARNING"/"CRITICAL",
+  // V2 = battery %. sendToBlynk() on the ESP32 pushes these every 15s, so
+  // there's no point polling much faster than that.
+  var BLYNK_CONFIG = {
+    enabled: true,
+    server: 'https://sgp1.blynk.cloud',
+    authToken: 'RfaM0LpJDwbIZ3902IZLqcB6HJNam-2u',
+    pins: { distance: 'V0', status: 'V1', battery: 'V2' }
+  };
+
+  function fetchBlynkPinRaw(pin){
+    var url = BLYNK_CONFIG.server + '/external/api/get?token=' + BLYNK_CONFIG.authToken + '&' + pin;
+    return fetch(url).then(function(res){
+      if(!res.ok) throw new Error('Blynk request failed: ' + res.status);
+      return res.text();
+    });
+  }
+
+  function fetchDeviceOnline(){
+    var url = BLYNK_CONFIG.server + '/external/api/isHardwareConnected?token=' + BLYNK_CONFIG.authToken;
+    return fetch(url).then(function(res){
+      if(!res.ok) throw new Error('Blynk request failed: ' + res.status);
+      return res.text();
+    }).then(function(text){
+      return text.trim().toLowerCase() === 'true';
+    });
+  }
+
+  function setDeviceOnline(isOnline){
+    var pill = document.getElementById('statusPill');
+    pill.classList.toggle('offline', !isOnline);
+    document.getElementById('statusText').textContent = isOnline ? 'ONLINE' : 'OFFLINE';
+  }
+
+  function fetchLiveData(){
+    fetchDeviceOnline().then(setDeviceOnline).catch(function(err){
+      console.warn('Blynk connectivity check failed:', err);
+      setDeviceOnline(false);
+    });
+
+    Promise.all([
+      fetchBlynkPinRaw(BLYNK_CONFIG.pins.distance),
+      fetchBlynkPinRaw(BLYNK_CONFIG.pins.status),
+      fetchBlynkPinRaw(BLYNK_CONFIG.pins.battery)
+    ]).then(function(results){
+      var d = parseFloat(results[0]);
+      var s = (results[1] || '').replace(/"/g, '').trim().toUpperCase();
+      var b = parseFloat(results[2]);
+      if(!isNaN(d)) state.distance = d;
+      if(s === 'SAFE' || s === 'WARNING' || s === 'CRITICAL') state.status = s;
+      if(!isNaN(b)) state.battery = b;
+      render();
+    }).catch(function(err){
+      console.warn('Blynk fetch failed, keeping last known values:', err);
+    });
+  }
+
+  // ---------- Simulated live sensor data (used until Blynk is enabled) ----------
+  var state = {
+    distance: 168,
+    status: 'SAFE',
+    battery: 92
+  };
+
+  // Mirrors getWaterStatus() on the ESP32: SAFE > 150cm, WARNING 50-150cm, CRITICAL < 50cm
+  function statusMeta(status){
+    if(status === 'CRITICAL') return {cls:'status-critical', color:'#dc2626'};
+    if(status === 'WARNING') return {cls:'status-elevated', color:'#ea8a1f'};
+    return {cls:'status-normal', color:'#1e7a34'};
+  }
+
+  function alertFor(status){
+    if(status === 'CRITICAL') return {cls:'level-critical', title:'ALERT LEVEL: CRITICAL', sub:'Flooding imminent — evacuate low-lying areas now'};
+    if(status === 'WARNING') return {cls:'level-elevated', title:'ALERT LEVEL: WARNING', sub:'Water is rising — stay alert'};
+    return {cls:'level-normal', title:'ALERT LEVEL: SAFE', sub:'No significant flood risk at this time'};
+  }
+
+  function timeNow(){
+    var now = new Date();
+    var h = now.getHours(), m = now.getMinutes();
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12; if(h12 === 0) h12 = 12;
+    return h12 + ':' + pad(m) + ' ' + ampm;
+  }
+
+  function render(){
+    var meta = statusMeta(state.status);
+
+    var statusEl = document.getElementById('area1-status');
+    statusEl.textContent = state.status;
+    statusEl.className = 'status ' + meta.cls;
+
+    document.getElementById('area1-val').textContent = isFinite(state.distance) ? state.distance.toFixed(0) : '--';
+    document.getElementById('area1-batt').textContent = 'Battery: ' + (isFinite(state.battery) ? state.battery.toFixed(0) : '--') + '%';
+    document.getElementById('area1-time').textContent = timeNow();
+
+    // Gauge fills MORE as the water gets closer (distance shrinks). 200cm+ = empty, 0cm = full.
+    var dangerPct = Math.max(0, Math.min(100, (200 - state.distance) / 200 * 100));
+    var fillEl = document.getElementById('area1-fill');
+    fillEl.style.height = dangerPct + '%';
+    fillEl.style.background = meta.color;
+
+    document.getElementById('w1-cur').textContent = state.distance.toFixed(0) + ' cm';
+    document.getElementById('w1-batt').textContent = (isFinite(state.battery) ? state.battery.toFixed(0) : '--') + '%';
+    var wStatusEl = document.getElementById('w1-status');
+    wStatusEl.textContent = state.status;
+    wStatusEl.className = meta.cls;
+
+    var alert = alertFor(state.status);
+    var banner = document.getElementById('alertBanner');
+    banner.className = 'alert-banner ' + alert.cls;
+    document.getElementById('alertTitle').textContent = alert.title;
+    document.getElementById('alertSub').textContent = alert.sub;
+  }
+
+  render();
+
+  if(BLYNK_CONFIG.enabled){
+    // Poll real sensor data from Blynk Cloud — matches the ESP32's 15s push cycle
+    fetchLiveData();
+    setInterval(fetchLiveData, 15000);
+  } else {
+    // Gentle simulated fluctuation so the dashboard feels alive until Blynk is wired in
+    setInterval(function(){
+      state.distance = Math.max(0, Math.min(220, state.distance + (Math.random() - 0.52) * 6));
+      state.battery = Math.max(0, Math.min(100, state.battery - Math.random() * 0.05));
+      state.status = state.distance > 150 ? 'SAFE' : (state.distance > 50 ? 'WARNING' : 'CRITICAL');
+      render();
+    }, 4000);
+  }
+
+})();
+</script>
+
+</body>
+</html>
