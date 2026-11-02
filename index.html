@@ -172,6 +172,15 @@
   .area-foot.blue-bg{background:var(--blue-light);}
   .area-foot.green-bg{background:var(--green-light);}
 
+  /* ---------- STATION 2 (ESTIMATED) ---------- */
+  .est-list{padding:10px 16px; flex:1; display:flex; flex-direction:column; justify-content:center;}
+  .est-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px dashed var(--line); font-size:.85rem; font-weight:700;}
+  .est-row:last-child{border-bottom:none;}
+  .est-tag{border:1.5px dashed currentColor; border-radius:20px; padding:2px 10px; font-size:.72rem; font-weight:900; letter-spacing:.3px; white-space:nowrap;}
+  .est-tag.status-nodata{color:#8a94a6;}
+  .est-badge{display:inline-block; font-size:.6rem; font-weight:900; letter-spacing:.4px; color:#5b6b85; background:#eef1f5; border:1px solid var(--line); border-radius:6px; padding:1px 5px; margin-left:6px; vertical-align:middle;}
+  .area-foot.est-bg{background:#eef1f5;}
+
   /* ---------- SAFETY REMINDERS ---------- */
   .safety-card{background:var(--amber-light); border:1px solid #f0dc9c; border-radius:var(--radius); overflow:hidden; display:flex; flex-direction:column;}
   .safety-card h3{margin:0; padding:14px 16px 8px; font-size:.92rem; display:flex; gap:8px; align-items:center; color:#7a5b00;}
@@ -367,20 +376,14 @@
             <div class="area-foot blue-bg">Last update: <span id="area1-time">10:24 AM</span></div>
           </div>
 
-          <!-- STATION 2 (NOT YET INSTALLED) -->
-          <div class="area-card" style="opacity:.65;">
-            <div class="area-head" style="background:#8a94a6;">
-              <div class="tag">NEARBY AREAS</div>
-              <div class="name">NOT YET INSTALLED</div>
+          <!-- STATION 2 (ESTIMATED FROM STATION 1 — no sensor installed yet) -->
+          <div class="area-card">
+            <div class="area-head" style="background:#6b7a99;">
+              <div class="tag">STATION 2 · ESTIMATED</div>
+              <div class="name">NEARBY AREAS</div>
             </div>
-            <div class="area-body">
-              <div class="area-icon" style="border-color:#8a94a6; color:#8a94a6;">➕</div>
-              <div class="area-reading">
-                <div class="status" style="color:#8a94a6;">OFFLINE</div>
-                <div class="cap" style="margin-top:6px;">Add a second ESP32 unit to monitor another site.</div>
-              </div>
-            </div>
-            <div class="area-foot" style="background:#eef1f5;">No sensor connected</div>
+            <div class="est-list" id="area2-list"></div>
+            <div class="area-foot est-bg" id="area2-foot">Estimated from Station 1. Not measured by a sensor.</div>
           </div>
 
           <!-- SAFETY -->
@@ -450,8 +453,9 @@
           <table class="log-table">
             <tr><th>Station</th><th>Distance to water</th><th>Battery</th><th>Status</th></tr>
             <tr><td>Station 1 — ESP32 Flood Monitor</td><td id="w1-cur">168 cm</td><td id="w1-batt">92%</td><td class="status-normal" id="w1-status">SAFE</td></tr>
-            <tr><td>Station 2</td><td>—</td><td>—</td><td style="color:#8a94a6;">NOT INSTALLED</td></tr>
+            <tbody id="w2-rows"></tbody>
           </table>
+          <p style="font-size:.8rem;">Station 2 areas have no sensor yet. Their levels are <b>estimates</b> based on Station 1, not measured readings.</p>
         </div>
       </div>
 
@@ -604,6 +608,8 @@
   function setDeviceOnline(isOnline){
     var pill = document.getElementById('statusPill');
     pill.classList.toggle('offline', !isOnline);
+    state.online = isOnline;
+    renderStation2();
     document.getElementById('statusText').textContent = isOnline ? 'ONLINE' : 'OFFLINE';
   }
 
@@ -624,6 +630,7 @@
       if(!isNaN(d)) state.distance = d;
       if(s === 'SAFE' || s === 'WARNING' || s === 'CRITICAL') state.status = s;
       if(!isNaN(b)) state.battery = b;
+      state.loaded = true;
       render();
     }).catch(function(err){
       console.warn('Blynk fetch failed, keeping last known values:', err);
@@ -634,8 +641,65 @@
   var state = {
     distance: 168,
     status: 'SAFE',
-    battery: 92
+    battery: 92,
+    online: true,
+    loaded: !BLYNK_CONFIG.enabled   // true right away in simulated mode
   };
+
+  // ---------- STATION 2: ESTIMATES BASED ON STATION 1 ----------
+  // No sensor at Station 2 yet. Its areas are estimated from Station 1's level,
+  // using the surveyed relationship. 'same' = copy Station 1's level.
+  // Edit this table to change the estimates.
+  var STATION2_AREAS = ['C. Pascual', 'Longos', 'Zamora', 'Poblacion'];
+  var STATION2_RULES = {
+    SAFE: {            // TODO: replace with surveyed values (currently: same as Station 1)
+      'C. Pascual': 'same', 'Longos': 'same', 'Zamora': 'same', 'Poblacion': 'same'
+    },
+    WARNING: {         // surveyed values
+      'C. Pascual': 'CRITICAL', 'Longos': 'CRITICAL', 'Zamora': 'same', 'Poblacion': 'same'
+    },
+    CRITICAL: {        // TODO: replace with surveyed values (currently: everything critical)
+      'C. Pascual': 'CRITICAL', 'Longos': 'CRITICAL', 'Zamora': 'CRITICAL', 'Poblacion': 'CRITICAL'
+    }
+  };
+
+  function estimateStation2(station1Level){
+    var rules = STATION2_RULES[station1Level];
+    return STATION2_AREAS.map(function(name){
+      var lvl = null;
+      if(rules && rules[name]) lvl = (rules[name] === 'same') ? station1Level : rules[name];
+      return { name: name, level: lvl };
+    });
+  }
+
+  function renderStation2(){
+    // No fresh Station 1 data => no honest estimate. Show NO DATA instead of a guess.
+    var hasData = state.loaded && state.online;
+    var estimates = estimateStation2(state.status);
+    var listEl = document.getElementById('area2-list');
+    var rowsEl = document.getElementById('w2-rows');
+    var html = '', tableHtml = '';
+
+    estimates.forEach(function(e){
+      var lvl = (hasData && e.level) ? e.level : null;
+      var cls = lvl ? statusMeta(lvl).cls : 'status-nodata';
+      var text = lvl || (state.loaded ? 'NO DATA' : '...');
+      html += '<div class="est-row"><span>' + e.name + '</span>' +
+              '<span class="est-tag ' + cls + '">' + text + '</span></div>';
+      tableHtml += '<tr><td>Station 2 — ' + e.name + '<span class="est-badge">EST</span></td>' +
+                   '<td>—</td><td>—</td><td class="' + cls + '">' + text + ' (estimated)</td></tr>';
+    });
+
+    if(listEl) listEl.innerHTML = html;
+    if(rowsEl) rowsEl.innerHTML = tableHtml;
+
+    var foot = document.getElementById('area2-foot');
+    if(foot){
+      foot.textContent = hasData
+        ? 'Estimated from Station 1 · Updated ' + timeNow()
+        : 'Station 1 has no current data, so no estimate is available.';
+    }
+  }
 
   // Mirrors getWaterStatus() on the ESP32: SAFE > 150cm, WARNING 50-150cm, CRITICAL < 50cm
   function statusMeta(status){
@@ -686,6 +750,8 @@
     banner.className = 'alert-banner ' + alert.cls;
     document.getElementById('alertTitle').textContent = alert.title;
     document.getElementById('alertSub').textContent = alert.sub;
+
+    renderStation2();
   }
 
   render();
