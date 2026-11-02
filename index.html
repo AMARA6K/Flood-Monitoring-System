@@ -383,7 +383,7 @@
               <div class="name">NEARBY AREAS</div>
             </div>
             <div class="est-list" id="area2-list"></div>
-            <div class="area-foot est-bg" id="area2-foot">BASED ON ACTUAL SURVEYS.</div>
+            <div class="area-foot est-bg" id="area2-foot">Based on actual surveys</div>
           </div>
 
           <!-- SAFETY -->
@@ -696,7 +696,7 @@
     var foot = document.getElementById('area2-foot');
     if(foot){
       foot.textContent = hasData
-        ? 'Estimated from Station 1 · Updated ' + timeNow()
+        ? 'Based on actual surveys · Updated ' + timeNow()
         : 'Station 1 has no current data, so no estimate is available.';
     }
   }
