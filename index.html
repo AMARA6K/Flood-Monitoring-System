@@ -628,25 +628,47 @@
   var STALE_AFTER_MIN = 5;   // photo older than this is labeled OLD PHOTO
   var camState = { url: '', taken: 0, error: '' };
 
-  function fetchCamera(){
-    Promise.all([
-      fetchBlynkPinRaw(BLYNK_CONFIG.pins.photoUrl),
-      fetchBlynkPinRaw(BLYNK_CONFIG.pins.photoTime)
-    ]).then(function(r){
-      var url = (r[0] || '').replace(/["\[\]\s]/g, '');
-      var t = parseInt((r[1] || '').replace(/[^0-9]/g, ''), 10);
-      // Only accept photos hosted on ImgBB
-      if(/^https:\/\/i\.ibb\.co\//.test(url)){
-        camState.url = url;
-        camState.error = '';
-      } else if(!camState.url){
-        camState.error = url ? 'Unexpected photo link: ' + url.slice(0, 40) : 'Blynk has no photo link yet';
-      }
-      if(!isNaN(t)) camState.taken = t;
-      renderCamera();
+  // Read one pin. Never throws; returns { ok, text, note } so one bad pin cannot block the other.
+  function readPinSafe(pin){
+    var url = BLYNK_CONFIG.server + '/external/api/get?token=' + BLYNK_CONFIG.authToken + '&' + pin;
+    return fetch(url).then(function(res){
+      return res.text().then(function(body){
+        if(res.ok) return { ok: true, text: body, note: '' };
+        return { ok: false, text: '', note: pin + ': error ' + res.status + ' ' + String(body).replace(/\s+/g, ' ').slice(0, 80) };
+      });
     }).catch(function(err){
-      console.warn('Camera fetch failed, keeping last photo:', err);
-      if(!camState.url){ camState.error = String(err && err.message ? err.message : err); renderCamera(); }
+      return { ok: false, text: '', note: pin + ': ' + (err && err.message ? err.message : err) };
+    });
+  }
+
+  function fetchCamera(){
+    readPinSafe(BLYNK_CONFIG.pins.photoUrl).then(function(a){
+      // ask for the time a moment later, so Blynk is not hit all at once
+      return new Promise(function(resolve){ setTimeout(resolve, 700); }).then(function(){
+        return readPinSafe(BLYNK_CONFIG.pins.photoTime);
+      }).then(function(b){ return [a, b]; });
+    }).then(function(r){
+      var a = r[0], b = r[1];
+      var notes = [];
+
+      if(a.ok){
+        var url = a.text.replace(/["\[\]\s]/g, '');
+        // Only accept photos hosted on ImgBB
+        if(/^https:\/\/i\.ibb\.co\//.test(url)) camState.url = url;
+        else if(!camState.url) notes.push(url ? 'Unexpected photo link: ' + url.slice(0, 40) : 'Blynk has no photo link yet');
+      } else {
+        notes.push(a.note);
+      }
+
+      if(b.ok){
+        var t = parseInt(b.text.replace(/[^0-9]/g, ''), 10);
+        if(!isNaN(t)) camState.taken = t;
+      } else {
+        notes.push(b.note);
+      }
+
+      camState.error = notes.join(' | ');
+      renderCamera();
     });
   }
 
@@ -655,7 +677,7 @@
     var ageMin = camState.taken ? Math.max(0, Math.floor((Date.now() / 1000 - camState.taken) / 60)) : null;
     var stale = (ageMin === null) || ageMin >= STALE_AFTER_MIN;
 
-    var badgeText = !hasPhoto ? 'NO PHOTO' : (stale ? 'OLD PHOTO' : 'SNAPSHOT');
+    var badgeText = !hasPhoto ? 'NO PHOTO' : (ageMin === null ? 'TIME UNKNOWN' : (stale ? 'OLD PHOTO' : 'SNAPSHOT'));
     var timeText = 'No photo yet';
     if(hasPhoto){
       if(camState.taken){
