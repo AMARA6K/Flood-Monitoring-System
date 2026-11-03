@@ -641,18 +641,20 @@
     });
   }
 
+  // The camera sends the photo link and the time together in V3, like:  https://i.ibb.co/xxx/cam.jpg|1793695000
+  // (If the time is missing there, the page falls back to reading V4.)
+  var MIN_VALID_TIME = 1700000000;   // anything smaller is not a real clock time
+
   function fetchCamera(){
     readPinSafe(BLYNK_CONFIG.pins.photoUrl).then(function(a){
-      // ask for the time a moment later, so Blynk is not hit all at once
-      return new Promise(function(resolve){ setTimeout(resolve, 700); }).then(function(){
-        return readPinSafe(BLYNK_CONFIG.pins.photoTime);
-      }).then(function(b){ return [a, b]; });
-    }).then(function(r){
-      var a = r[0], b = r[1];
       var notes = [];
+      var t = NaN;
 
       if(a.ok){
-        var url = a.text.replace(/["\[\]\s]/g, '');
+        var raw = a.text.replace(/["\[\]\s]/g, '');
+        var parts = raw.split('|');
+        var url = parts[0];
+        t = parseInt(parts[1], 10);
         // Only accept photos hosted on ImgBB
         if(/^https:\/\/i\.ibb\.co\//.test(url)) camState.url = url;
         else if(!camState.url) notes.push(url ? 'Unexpected photo link: ' + url.slice(0, 40) : 'Blynk has no photo link yet');
@@ -660,15 +662,27 @@
         notes.push(a.note);
       }
 
-      if(b.ok){
-        var t = parseInt(b.text.replace(/[^0-9]/g, ''), 10);
-        if(!isNaN(t)) camState.taken = t;
-      } else {
-        notes.push(b.note);
+      if(!isNaN(t) && t >= MIN_VALID_TIME){
+        camState.taken = t;
+        camState.error = notes.join(' | ');
+        renderCamera();
+        return;
       }
 
-      camState.error = notes.join(' | ');
-      renderCamera();
+      // No time inside V3: try V4 instead (a moment later, so Blynk is not hit all at once)
+      return new Promise(function(resolve){ setTimeout(resolve, 700); }).then(function(){
+        return readPinSafe(BLYNK_CONFIG.pins.photoTime);
+      }).then(function(b){
+        if(b.ok){
+          var t4 = parseInt(b.text.replace(/[^0-9]/g, ''), 10);
+          if(!isNaN(t4) && t4 >= MIN_VALID_TIME) camState.taken = t4;
+          else notes.push('no photo time yet');
+        } else {
+          notes.push(b.note);
+        }
+        camState.error = notes.join(' | ');
+        renderCamera();
+      });
     });
   }
 
@@ -687,7 +701,7 @@
         timeText = 'Taken at ' + h12 + ':' + pad(m) + ' ' + (h >= 12 ? 'PM' : 'AM');
         if(stale) timeText += ' (' + (ageMin >= 60 ? Math.floor(ageMin / 60) + ' hr' : ageMin + ' min') + ' ago)';
       } else {
-        timeText = 'Time unknown';
+        timeText = 'Time unknown' + (camState.error ? ' (' + camState.error + ')' : '');
       }
     }
 
@@ -712,11 +726,25 @@
       img.setAttribute('data-src', camState.url);
       var box = img.parentElement;
       var msg = box.querySelector('[data-cam-msg]');
-      img.onload = function(){ img.style.display = ''; if(msg) msg.style.display = 'none'; };
+      if(img._slowTimer) clearTimeout(img._slowTimer);
+      img.onload = function(){
+        clearTimeout(img._slowTimer);
+        img.style.display = '';
+        if(msg) msg.style.display = 'none';
+      };
       img.onerror = function(){
+        clearTimeout(img._slowTimer);
         img.style.display = 'none';
         if(msg){ msg.style.display = ''; msg.textContent = 'Photo not available right now.'; }
       };
+      if(msg){ msg.style.display = ''; msg.textContent = 'Loading photo...'; }
+      // If the photo site is blocked or very slow on this network, say so instead of waiting forever
+      img._slowTimer = setTimeout(function(){
+        if(img.style.display === 'none' && msg){
+          msg.style.display = '';
+          msg.textContent = 'The photo is taking too long to load. Your network or browser may be blocking the photo site. Try mobile data or another browser.';
+        }
+      }, 15000);
       img.src = camState.url;
     });
   }
