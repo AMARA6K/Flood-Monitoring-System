@@ -409,7 +409,7 @@
         <div class="row-mid" style="margin-bottom:14px;">
 
           <div class="panel">
-            <div class="panel-head">🖼️SNAPSHOTS</div>
+            <div class="panel-head">🎥 LIVE CAMERA FEED</div>
             <div class="cam-body">
               <div class="live-badge snap-badge none" data-cam-badge><span class="live-dot"></span><span data-cam-badge-text>NO PHOTO</span></div>
               <div class="cam-msg" data-cam-msg>Waiting for the first photo...</div>
@@ -626,7 +626,7 @@
   // The ESP32-CAM uploads a photo to ImgBB, then writes the link to V3
   // and the time it was taken (seconds since 1970) to V4.
   var STALE_AFTER_MIN = 5;   // photo older than this is labeled OLD PHOTO
-  var camState = { url: '', taken: 0 };
+  var camState = { url: '', taken: 0, error: '' };
 
   function fetchCamera(){
     Promise.all([
@@ -636,11 +636,17 @@
       var url = (r[0] || '').replace(/["\[\]\s]/g, '');
       var t = parseInt((r[1] || '').replace(/[^0-9]/g, ''), 10);
       // Only accept photos hosted on ImgBB
-      if(/^https:\/\/i\.ibb\.co\//.test(url)) camState.url = url;
+      if(/^https:\/\/i\.ibb\.co\//.test(url)){
+        camState.url = url;
+        camState.error = '';
+      } else if(!camState.url){
+        camState.error = url ? 'Unexpected photo link: ' + url.slice(0, 40) : 'Blynk has no photo link yet';
+      }
       if(!isNaN(t)) camState.taken = t;
       renderCamera();
     }).catch(function(err){
       console.warn('Camera fetch failed, keeping last photo:', err);
+      if(!camState.url){ camState.error = String(err && err.message ? err.message : err); renderCamera(); }
     });
   }
 
@@ -670,7 +676,15 @@
     document.querySelectorAll('[data-cam-badge-text]').forEach(function(el){ el.textContent = badgeText; });
     document.querySelectorAll('[data-cam-time]').forEach(function(el){ el.textContent = timeText; });
 
-    if(!hasPhoto) return;
+    if(!hasPhoto){
+      if(camState.error){
+        document.querySelectorAll('[data-cam-msg]').forEach(function(el){
+          el.style.display = '';
+          el.textContent = 'Could not get the photo. (' + camState.error + ')';
+        });
+      }
+      return;
+    }
     document.querySelectorAll('[data-cam-img]').forEach(function(img){
       if(img.getAttribute('data-src') === camState.url) return;
       img.setAttribute('data-src', camState.url);
@@ -686,7 +700,7 @@
   }
 
   function fetchLiveData(){
-    fetchCamera();
+    setTimeout(fetchCamera, 1500);   // wait a moment so Blynk is not asked for everything at once
     fetchDeviceOnline().then(setDeviceOnline).catch(function(err){
       console.warn('Blynk connectivity check failed:', err);
       setDeviceOnline(false);
