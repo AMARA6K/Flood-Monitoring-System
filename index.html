@@ -430,11 +430,11 @@
 
           <div class="guide-card">
             <h3>💧 STATUS GUIDE</h3>
-            <div class="guide-row"><span class="chip g-normal"></span><span class="range">&gt; 150 cm</span><span class="lbl">SAFE</span></div>
+            <div class="guide-row"><span class="chip g-normal"></span><span class="range">&gt; 40 cm</span><span class="lbl">SAFE</span></div>
             <div class="guide-row" style="padding-top:0;"><span class="desc" style="margin-left:18px;">Water surface far from sensor.</span></div>
-            <div class="guide-row"><span class="chip g-elevated"></span><span class="range">50–150 cm</span><span class="lbl">WARNING</span></div>
+            <div class="guide-row"><span class="chip g-elevated"></span><span class="range">20–40 cm</span><span class="lbl">WARNING</span></div>
             <div class="guide-row" style="padding-top:0;"><span class="desc" style="margin-left:18px;">Water rising. Be alert.</span></div>
-            <div class="guide-row"><span class="chip g-critical"></span><span class="range">&lt; 50 cm</span><span class="lbl">CRITICAL</span></div>
+            <div class="guide-row"><span class="chip g-critical"></span><span class="range">&lt; 20 cm</span><span class="lbl">CRITICAL</span></div>
             <div class="guide-row" style="padding-top:0;"><span class="desc" style="margin-left:18px;">Flooding imminent. Evacuate!</span></div>
           </div>
 
@@ -887,7 +887,7 @@
     }
   }
 
-  // Mirrors getWaterStatus() on the ESP32: SAFE > 150cm, WARNING 50-150cm, CRITICAL < 50cm
+  // Mirrors getWaterStatus() on the ESP32: SAFE > 40cm, WARNING 20-40cm, CRITICAL < 20cm
   function statusMeta(status){
     if(status === 'CRITICAL') return {cls:'status-critical', color:'#dc2626'};
     if(status === 'WARNING') return {cls:'status-elevated', color:'#ea8a1f'};
@@ -953,7 +953,7 @@
     setInterval(function(){
       state.distance = Math.max(0, Math.min(220, state.distance + (Math.random() - 0.52) * 6));
       state.battery = Math.max(0, Math.min(100, state.battery - Math.random() * 0.05));
-      state.status = state.distance > 150 ? 'SAFE' : (state.distance > 50 ? 'WARNING' : 'CRITICAL');
+      state.status = state.distance > 40 ? 'SAFE' : (state.distance >= 20 ? 'WARNING' : 'CRITICAL');
       render();
     }, 4000);
   }
