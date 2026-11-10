@@ -345,18 +345,18 @@
           <div class="weather-card">
             <h3>WEATHER TODAY</h3>
             <div class="weather-main">
-              <div class="icon">🌧️</div>
+              <div class="icon" id="weatherIcon">⛅</div>
               <div>
-                <div class="temp">28°C</div>
-                <div class="cond">Light Rain</div>
+                <div class="temp" id="weatherTemp">--°C</div>
+                <div class="cond" id="weatherCond">LOADING WEATHER…</div>
               </div>
             </div>
             <div class="weather-stats">
-              <div><span class="k">💧 Humidity</span><span>82%</span></div>
-              <div><span class="k">🌬️ Wind</span><span>12 km/h</span></div>
-              <div><span class="k">☔ Rainfall</span><span>5.3 mm</span></div>
+              <div><span class="k">💧 Humidity</span><span id="weatherHumidity">--%</span></div>
+              <div><span class="k">🌬️ Wind</span><span id="weatherWind">-- km/h</span></div>
+              <div><span class="k">☔ Rainfall today</span><span id="weatherRain">-- mm</span></div>
             </div>
-            <div class="weather-source">Source: OpenWeatherMap</div>
+            <div class="weather-source" id="weatherSource">Live weather · Barangay Bayugo</div>
           </div>
         </div>
 
@@ -448,7 +448,7 @@
               <span>Report any flooding or hazards to your Barangay Officials.</span>
             </div>
           </div>
-          <div class="fb">📘 Follow our official Facebook page for more updates.</div>
+          <a class="fb" id="facebookLink" href="https://www.facebook.com/profile.php?id=61553169195773" target="_blank" rel="noopener noreferrer">📘 Follow our official Facebook page for more updates.</a>
         </div>
 
       </div>
@@ -577,6 +577,55 @@
   }
   updateClock();
   setInterval(updateClock, 15000);
+
+  // ---------- LIVE WEATHER (Open-Meteo; no API key required) ----------
+  // Approximate center coordinates for Barangay Bayugo, Meycauayan, Bulacan.
+  // Weather is contextual information only; it is NOT a flood-warning trigger.
+  var WEATHER_CONFIG = { latitude: 14.7317, longitude: 120.9523 };
+
+  function weatherDescription(code){
+    if(code === 0) return {text:'Clear sky', icon:'☀️'};
+    if(code === 1) return {text:'Mainly clear', icon:'🌤️'};
+    if(code === 2) return {text:'Partly cloudy', icon:'⛅'};
+    if(code === 3) return {text:'Overcast', icon:'☁️'};
+    if(code === 45 || code === 48) return {text:'Fog', icon:'🌫️'};
+    if([51,53,55,56,57].indexOf(code) !== -1) return {text:'Drizzle', icon:'🌦️'};
+    if([61,63,65,66,67,80,81,82].indexOf(code) !== -1) return {text:'Rain', icon:'🌧️'};
+    if([71,73,75,77,85,86].indexOf(code) !== -1) return {text:'Snow', icon:'❄️'};
+    if([95,96,99].indexOf(code) !== -1) return {text:'Thunderstorm', icon:'⛈️'};
+    return {text:'Conditions unavailable', icon:'🌡️'};
+  }
+
+  function loadWeather(){
+    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + WEATHER_CONFIG.latitude +
+      '&longitude=' + WEATHER_CONFIG.longitude +
+      '&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m' +
+      '&daily=precipitation_sum&forecast_days=1&timezone=Asia%2FManila';
+    fetch(url).then(function(res){
+      if(!res.ok) throw new Error('Weather service returned ' + res.status);
+      return res.json();
+    }).then(function(data){
+      if(!data.current) throw new Error('No current weather data');
+      var current = data.current;
+      var desc = weatherDescription(Number(current.weather_code));
+      document.getElementById('weatherIcon').textContent = desc.icon;
+      document.getElementById('weatherTemp').textContent = Math.round(current.temperature_2m) + '°C';
+      document.getElementById('weatherCond').textContent = desc.text;
+      document.getElementById('weatherHumidity').textContent = Math.round(current.relative_humidity_2m) + '%';
+      document.getElementById('weatherWind').textContent = Math.round(current.wind_speed_10m) + ' km/h';
+      var rain = data.daily && data.daily.precipitation_sum && data.daily.precipitation_sum.length
+        ? data.daily.precipitation_sum[0] : null;
+      document.getElementById('weatherRain').textContent = rain === null ? '-- mm' : Number(rain).toFixed(1) + ' mm';
+      var updated = current.time ? new Date(current.time).toLocaleTimeString('en-PH', {hour:'numeric', minute:'2-digit', hour12:true}) : '';
+      document.getElementById('weatherSource').textContent = 'Open-Meteo · Bayugo · Updated ' + (updated || 'just now');
+    }).catch(function(err){
+      console.warn('Weather fetch failed:', err);
+      document.getElementById('weatherCond').textContent = 'Weather unavailable';
+      document.getElementById('weatherSource').textContent = 'Could not load live weather · Check internet connection';
+    });
+  }
+  loadWeather();
+  setInterval(loadWeather, 10 * 60 * 1000);
 
   // ---------- BLYNK INTEGRATION ----------
   // Fill these in with your own Blynk Cloud details, then set enabled: true.
